@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+PocoConnection.sln 
+Debug/ 
+.vs/ 
+PocoConnection/PocoConnection.vcxproj 
+PocoConnection/PocoConnection.vcxproj.filters 
+PocoConnection/PocoConnection.vcxproj.user 
