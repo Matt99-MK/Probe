@@ -36,3 +36,10 @@ Debug/
 PocoConnection/PocoConnection.vcxproj 
 PocoConnection/PocoConnection.vcxproj.filters 
 PocoConnection/PocoConnection.vcxproj.user 
+
+TCPServer-Client/TCPServer-Client.vcxproj 
+TCPServer-Client/TCPServer-Client.vcxproj.filters 
+TCPServer-Client/TCPServer-Client.vcxproj.user 
+
+ 
+TCPServer-Client/TCPServer-Client.sln 
