@@ -1,0 +1,602 @@
+That file consists of many useful commands and tips towards RHEL and administration.
+
+MENU
+1.Processes
+2.Disk Management
+2.1 - Partition
+3.UUID
+4.LVM
+5.iSCSI
+6.Init Management(systemd)
+7.Scheduling
+8.Logging
+9.Memory and resource
+10.Networking
+10.1 Tools
+11.Binding and bonding
+12.Samba
+13.Backup
+14.General Management of environment
+15.Devices
+16.GRUB
+17.RAID
+18.Multipathing/Mapper
+19.SSH
+20.Repo
+21.Monitoring
+22.Firewall
+23.SeLinux
+24.General
+--------------------------------------------------------------------------------
+
+1.Processes
+
+lsof - which processes uses the files.
+'ps -ef' - all working proccess (without options only local) 
+htop 
+glances
+
+2.Disk Management
+
+lsblk
+
+2.1 - Partition
+
+On disc there may be partitions:
+Primary (max 4) 
+Extended (max 1)
+Logical 5-X
+/etc/fstab - info about accessible filesystems during the boot time, so we have to include our new-created partitions in that file
+ 'parted' - command to simple partitioning
+SHELL* 'print' - shows all partitions on device
+SHELL* 'select /dev/sda' - create shell for partitioning
+SHELL* 'mkpart primary 0 50%' - create partition from 0% of disc to 50%
+OR SHELL* 'mkpart'
+/proc/filesystems - list of all supported file systems.
+'mkfs.ext4 /dev/sda1' - create file system
+'mount /dev/device /mount/point' - to mount
+
+3.UUID
+
+uniquely identify objects.
+'sudo blkid' - all uuid's. 
+
+4.LVM
+
+Physical volume - devices, partitions,RAID
+Volume group - consist of Physcial volumes
+Logical volume - created in volume group
+pvdisplay - display physical volumes
+pvresize - When you used fdisk to resize a partition on a disk, then you must use pvresize to make lvm recognize the new size of the physical volume that represents this partition.
+vgdisplay - display volume groups
+lvdisplay - display logical volumes
+pvscan - availible physical volumes to working with lvm
+example : 
+'pvcreate /dev/sdc' - creating pv
+'vgcreate vg /dev/sdc' - adding group vg
+'lvcreate --size 500m --name LVsmall vg' - creating in group vg named "LVsmall"
+'s -l /dev/mapper' - it directory which include pointers to true logical volumes
+example output : 
+'lrwxrwxrwx. 1 root root       7 08-04 17:20 fedora_vg_name-home -> dev/dm-2' 
+'mount /dev/mapper/VG42-LVsmall /srv/LVsmall' - mounting using mapper
+We can create also mirror or snapshot logical volume
+
+5.iSCSI
+
+is a protocol that enables SCSI over IP and allows us to us as normal memory device.
+TARGET(SERVER):
+Config file : /etc/tgt/targets.conf
+<target iqn.2008-09.com.example:server.target2>    // name of the target/server
+    direct-store /dev/sdb                          //device shared
+    direct-store /dev/sdc                          //device shared
+    direct-store /dev/sdd                          //device shared
+    incominguser paul hunter2                      //users and passwords
+</target>
+CLIENT(INITIATOR):
+iscsiadm -m node --targetname iqn.2014-04.be.linux-tra\
+ining:centos65.target1 --portal "192.168.1.95:3260" --op=update --name node.\
+session.auth.username --value=paul
+[root@server2 iscsi]# iscsiadm -m node --targetname iqn.2014-04.be.linux-tra\
+ining:centos65.target1 --portal "192.168.1.95:3260" --op=update --name node.\
+session.auth.password --value=hunter2
+[root@server2 iscsi]# iscsiadm -m node --targetname iqn.2014-04.be.linux-tra\
+ining:centos65.target1 --portal "192.168.1.95:3260" --op=update --name node.\
+session.auth.authmethod --value=CHAP
+
+6.Init Management(systemd)
+
+'systemctl list-units --type=target' - shows all levels/targets
+'systemctl -at service' - shows all availible services
+'ls /etc/systemd/system/multi-user.target.wants/' - dependencies of the target
+'/etc/systemd/system/' - Config file
+
+7.Scheduling
+
+cron - allows to schedule recurring tasks
+[Minute] [Hour] [Day_of_the_Month] [Month_of_the_Year] [Day_of_the_Week] [command]
+example : 
+15 6 2 1 * /home/melissa/backup.sh
+at - create only one-time task in sharp time 
+at 10am Jul 31 /home/melissa/backup.sh
+
+8.Logging
+
+/etc/rsyslog.conf - Main configuration
+/etc/logrotate.conf - configuration of rotating logs
+
+FACILITY.PRIORITY WHERE :
+FACILITY  - kern, user, mail, daemon, auth, syslog, lpr, news, uucp, cron, authpriv, ftp, ntp, logaudit, logalert, clock, local0 - local7.
+PRIORITY  - debug, info, notice, warning, err, crit, alert, emerg.
+/etc/rsyslog.conf - main config file
+var/log - log files
+Rsyslog offers many attractive ways to transfer log files for example : rsyslog-server, mail , database.
+'logger -p local4.error "l4 error test"' - allows us to send specified log message
+
+9.Memory and resource
+
+df - general memory usage of whole system
+'du -shc *' - total memory in actual directory
+free - free memory of the system
+htop - lists of working processess
+iostat - cpu and device statistics
+vmstat - virtual memory usage
+pidstat - one-shot look up on activity of processess
+
+10.Networking
+
+SCHEME:
+
+/etc/hosts.deny or hosts.allow - file to deny/allow any connection attempts from that network.Skeletons of the TCP Wrapper package.
+ALERT! TCP-WRAPPERS ARE DEPRACATED BECAUSE CONNECTION SHOULD BE VALIDATED ON THE FIREWALL LAYER!
+firewall and iptables are tools which helps to manage filter network acticity.
+
+xinted - daemon is a TCP-wrapped super service which controls access to a subset of popular network services.Allows access control, enhanced logging, binding, redirection, and resource utilization control.  
+
+/etc/xinetd.conf — The global xinetd configuration file.
+/etc/xinetd.d/ — The directory containing all service-specific files. 
+EXAMPLE in that directory:
+service telnet
+{
+	 disable         = no
+	 flags           = REUSE
+	 socket_type     = stream
+	 wait            = no
+	 user            = root
+	 server          = /usr/kerberos/sbin/telnetd
+	 log_on_failure  += USERID
+	 no_access       = 172.16.45.0/24
+	 log_on_success  += PID HOST EXIT //Parameteres pass to log file
+	 access_times    = 09:45-16:15
+}
+-----------
+
+TCP Wrappers - add an additional layer of protection by defining which hosts are or are not allowed to connect to "wrapped" network services.
+
+nmcli - network namanger
+
+Creating : 
+-OpenStack - cloud-computing system
+-DNS Server
+-DHCP Server
+-Apache http
+-Proxy server
+
+---------------------------------------
+The rest : 
+NetworkManager is daemon which control network and configuration.
+nmcli - stands for network manager client.
+THERE is dirrerence between DEV and Connection. (enp6s0 - device(interface), Wired_Connection 1 - connection to that interface).
+commands:
+nmcli connection reload
+nmcli -h
+nmcli connection help
+nmcli dev disconnect enp6s0
+'nmcli con add type ethernet con-name my-office ifname eth0' - Adding a dynamic ethernet connection 
+'nmcli con add type ethernet con-name test-lab ifname eth1 ip4 10.10.10.10/24 gw4 10.10.10.254' - Adding a static ethernet connection
+'nmcli -p c show 'Wired connection 1'' - Show specific connection information.
+'nmcli con mod test-lab +ipv4.addresses "192.168.114.114"' -  To add additional IP addresses, use the + prefix as follows.
+'nmcli connection modify eth0 +ipv4.routes "192.168.122.0/24 10.10.10.1"' - This will direct traffic for the 192.168.122.0/24 subnet to the gateway at 10.10.10.1. 
+------------------
+There are three classes of hostname: static(user), pretty(), and transient(kernel).
+'hostnamectl status' - to manage hostnames
+------------------
+Network Teaming is similar to bonding but better.
+Instead of using Slaves we use it that situation "Port"
+
+10.1 Tools
+
+dig - dns lookup
+ip -  command to manage network issues
+nmap - networking staticts
+'ethtool "interface"' - statistics about given interface
+'ip -a' - to show all availible interfaces
+
+11.Binding and bonding
+
+Binding - more than 1 ip address on the SAME net interface card
+
+'ip address add 192.168.2.223/24 dev eth1' - to bind more than one ip adress to interface
+-----------------------------------------------------------------------------------------
+
+
+	Connection
+---------------------------->>>>>>>>>>>>
+	|
+	Interface
+
+
+
+Bonding - multiple net interface card behind the SAME one interface
+
+General Scheme :
+
+1.eth0 - 192.168.122(ip_address)
+
+1.eth1(slave) --------\ 
+                       - bond0 (master) 192.168.123(ip_address)
+2.eth2(slave) --------/
+
+Firstly we have to create in '/etc/sysconfig/network-scripts/ifcfg-bondN' - bondN is number of interface
+In that file we create MASTER interface:
+DEVICE=bond0
+NAME=bond0
+TYPE=Bond
+BONDING_MASTER=yes
+IPADDR=192.168.1.1                  - OUR NEW IP_ADDRESS
+PREFIX=24
+ONBOOT=yes
+BOOTPROTO=none
+BONDING_OPTS="bonding parameters separated by spaces"        - TO CREATE THE BEST PERFORMANCE AND EFFENCIVITY we specifie bandwith for example:
+#BONDING_OPTS="mode=1 miimon=250"
+
+The next stage is to create many slaves in that directory, for example:
+'/etc/sysconfig/network-scripts/ifcfg-eth1' ---------->
+DEVICE=eth1
+NAME=bond0-slave
+TYPE=Ethernet
+BOOTPROTO=none
+ONBOOT=yes
+MASTER=bond0
+SLAVE=yes
+
+At the end we have to up all real interfaces :
+'ifup ifcfg-eth0'
+And we have to aware Networkmanager of the changes:
+'nmcli con load /etc/sysconfig/network-scripts/ifcfg-bondN'
+'nmcli con reload'
+
+NOTICE : The interfaces configured as slaves should not have IP addresses 
+
+12.Samba
+
+Section [global] for global configuration of whole server
+
+Section [homes] for sharing users' home directoriei for each clients(each user).
+For example, assume a client system is connecting to the Samba server toltec for the first time and tries to connect to a share named [alice]. There is no [alice] share defined in the smb.conf file, but there is a [homes], so Samba searches the password database file and finds an alice user account is present on the system. Samba then checks the password provided by the client against user alice's Unix password—either with the password database file if it's using nonencrypted passwords or with Samba's smbpasswd file if encrypted passwords are in use. If the passwords match, Samba knows it has guessed right: the user alice is trying to connect to her home directory. Samba will then create a share called [alice] for her, with the share's path set to alice's home directory.
+if homee directory exists we have access on that.By default it is better to delet that section.
+
+Section "share" - First of all, if we want to share our specific directory with authorization(not for gueast) we have to create samba user account with login the same as system account.
+
+At the end we have to make suro about permissions(SeLinux,firewall, directory-permissions). 
+
+13.Backup
+
+sudo rsync -aAXv --delete --dry-run --exclude=/dev/*i /  /run/media/Pendrive/
+                                                      /\  
+                                                      OUR BACKUP DIRECTORY
+{a -archive mode
+{A - Preserve Access control list
+{X - Preserve extended attributes
+{v - Show progress of the backup
+{ --dry-run Show pre-exception of that uncoming proccess
+{ --delete Backup only difference since the first backup.  
+
+14.General Management of environment
+
+bc - basic calculator
+bg - sends working process to background
+{chgrp
+{chmod - Privilidges
+{chown
+chroot - allows us to init program in given directory with the same root directory and thereby separates service from the other system resources.
+cp - copy file to another location
+fg - send to foreground job
+file - determine file type
+sudo grep -i --directories skip ' Mateusz ' ./*
+sudo find  ./* -name  *.txt
+{groupadd
+{groupdel -
+{groupmod - USERS
+{groups
+{useradd
+{userdel
+{usermod
+'tar -zcvf NAME_archive.tar.gz Music/ ' - archive and compress
+'gzip -vr Music' - Only compress, NOT archive
+'tar -zxvf NAME_archive.tar.gz' - unpacked archive and decompress
+mv - moev object
+'notify-send' - send notification to the user  
+diff - file difference
+strace - system calls
+tee - redirect output to multiple files
+traceroute - trace
+sort
+kill %n - kills stopped process and is able to send a signal
+chmod go +rw file 
+/etc/sudoers - file with users-sudoers
+/etc/dev/ - include all devices
+'ac -d' - time spend as logged on
+sar - statistics of resources through the time
+glances - info 
+/etc/group - info about groups 
+
+15.Devices
+
+lspci - list all devices PCI
+lsscsi - list all SCSI Discks
+lshw - shows info of hardware
+
+16.GRUB
+
+General Configuration file is in  /etc/default/grub
+stanza - custom booting configuration
+
+17.RAID
+
+RAID, or Redundant Array of Independent Disks, allows a group, or array, of drives to act as a single device.
+RAID has many levels, for example lvl 0 connects many devices into one and lvl 1 mirror data on first disk to another and becomes data-saved.
+example :
+#mdadm -Cv /dev/md0 --level=0 -n 2 /dev/sda5 /dev/sda6
+          * DEVICE as 1 disk  
+
+
+18.Mapper/Multipathing
+
+19.SSH
+
+20.Repo
+
+Most repo are located in /etc/yum.repos.d/
+example installation : dnf -y install https://rpms.remirepo.net/enterprise/remi-release-8.rpm 
+
+
+21.Monitoring
+
+OpenNMS Horizon
+OSSIM
+
+
+22.Firewal
+Main configuration: /etc/firewalld/firewalld.conf 
+Confiugration : Runtime, Pernament
+Adding source = white list.
+Info:
+firewall-cmd --state
+firewall-cmd --get-active-zones
+firewall-cmd --list-all-zones
+firewall-cmd --zone=XXXX --list-all
+/usr/lib/firewalld/services/ - All services
+firewall-cmd --info-service=XXX
+Usage:
+firewall-cmd --reload
+'firewall-cmd --zone=public --add-interface=em1' - to add interface to zone
+firewall-cmd --set-default-zone=public
+firewall-cmd --zone=XXX --add-port=8080/tcp
+firewall-cmd --zone=XXX --add-service=smtp
+Port forwarding:
+
+firewall-cmd --zone=XXX --add-forward-port=port=22:proto=tcp:toport=2055oaddr=192.0.2.55
+
+IPSets :
+An ipset can be used to group several IP or MAC addresses together.
+
+Rich Rules(better thandirect interface):
+firewall-cmd --permanent --zone=XXX --list-rich-rules
+syntax:
+firewall-cmd [--zone=zone] --add-rich-rule='rule'
+rule [family="rule family"]    [ source [NOT] [address="address"] [mac="mac-address"] [ipset="ipset"] ]    [ destination [NOT] address="address" ]    [element]    [ log [prefix="prefix text"] [level="log level"] [limit value="rate/duration"] ]    [ audit ]    [action]
+
+
+example : firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192.168.1.100" port protocol="tcp" port="3306" reject'
+In order to reject or drop OUTGOING connection we have to use direct command : 
+sudo firewall-cmd --direct --add-rule ipv4 filter OUTPUT 0 -d 134.223.116.100/32  -j REJECT
+'firewall-cmd --direct --get-all-rules' - shows all informations.
+'firewall-cmd --direct --add-rule ipv4 filter OUTPUT 1 -d 216.58.215.110 -j DROP'
+'firewall-cmd --direct --remove-rule ipv4 filter OUTPUT 1 -p tcp --dport 5050 -j DROP'
+                                           |       |    |
+                Table(in this case - default)   Chain   Priority
+
+
+Terminology:
+Zones - Created configurationis for many occasions.
+IP-Masquearading - The addresses of a private network are mapped to and hidden behind a public IP address. This is a form of address translation and mostly used in routers. Masquerading is IPv4 only because of kernel limitations.Just MAKE WITH SYSTEM ROUTER - USEFUL WITH PORT FORWARDING.
+To allow LAN nodes with private IP addresses to communicate with external public networks, configure the firewall for IP masquerading.
+
+23.SELinux
+
+Fedora includes an enhancement to the Linux kernel called SELinux, which implements a Mandatory Access Control (MAC) architecture that provides a fine-grained level of control over files, processes, users and applications in the system.
+DAC access decisions are only based on user identity and ownership, ignoring other security-relevant information such as the role of the user, the function and trustworthiness of the program, and the sensitivity and integrity of the data.
+SELinux policy rules are checked after DAC rules.
+'getenforce' - check SELinux availible
+The entrypoint permission is used in SELinux policy and controls which applications can be used to enter a OTHER domain
+' ps -eZ' - To show SELinux Context for Processes
+'id -Z' - To show SELinux Context for Users
+'semanage boolean -l' - To see all booleans
+SELINUXTYPE - says which kind of processes are protected(What this means is that, by default, SELinux will restrict only certain processes in the system). 
+process is called a subject.
+A subject is a process and can potentially affect an object.
+An object in SELinux is anything that can be acted upon. This can be a file, a directory, a port, a tcp socket, the cursor, or perhaps an X server.
+Domains are for Subjects.Types are for Objects
+A domain is the context within which an SELinux subject (process) can run.(BUBBLE)
+Without SELinux, a process or application like the Apache daemon will run under the context of the user that started it.
+'Contexts of files already existing in the system are listed in the /etc/selinux/targeted/contexts/files/file_contexts file.'
+------------------------------
+How Processes Access Resources:
+allow <domain> <type/s>:<class> { <permissions> };
+EXAMPLES:
+'sesearch --allow --source httpd_t --target httpd_sys_content_t --class file' : 
+" allow httpd_t httpd_sys_content_t: file { ioctl read getattr lock open} ;
+  allow httpd_t httpd_content_type : file { ioctl read getattr lock open } ;
+  allow httpd_t httpd_content_type : file { ioctl read getattr lock open } ; "
+------------------------------
+Domain Transition:
+Domain transition is the method where a process changes its context from one domain to another.(usufeul in systemd ,as init runs other demons)
+rules :
+    The parent process of the source domain must have the execute permission for the application sitting between both the domains (this is the entrypoint).
+    The file context for the application must be identified as an entrypoint for the target domain.
+    The original domain must be allowed to transition to the target domain. 
+------------------------------
+'seinfo -ruser_r -x | grep httpd' - checks is user_r role has access to httpd domain
+
+
+
+ SELinux CONTEXT ------->         rwxrw-r--  user1 group1 unconfined_u:object_r:user_home_t:s0                      file1
+                                                          (user       :role    :type(domain:level)
+
+
+SELinux user - A SELinux user is an identifier that administrators can use to limit which SELinux roles can be used(assigned unix users).This is effectively used to limit the ability of users to run or execute particular applications.Every regular Linux user account is mapped to one or more SELinux users. 
+role - This controls which object types can be accessed. This helps reduce vulnerability to privilege escalation attacks.A role is like a gateway that sits between a user and a process. A role defines which users can access that process.  
+type - -||-
+level - -||-
+"Know that a process is allowed read access to a resource only when its sensitivity and category level is higher than that of the resource (i.e. the process domain dominates the resource type). The process can write to the resource when its sensitivity/category level is less than that of the resource"
+
+25.General
+
+TERMS: 
+-Password Security Policy(pam_cracklib.so PAM module).
+-Logs to general log server
+-setuid allows run program with privilidges of owner
+PRACTICE :
+- We can prevent BIOS booting from CD/DVD/USB.
+- Use PAM to limit root access to services(Edit the file for the target service in the /etc/pam.d/ directory. Make sure the pam_listfile.so is required for authentication).
+-To edit /etc/sudoers file we use visudo command.
+
+uname -a - Print system information 
+
+
+26.PAM
+
+PAM - Pluggable Authentication Modules,try to confirm authenticaton of each other.
+that provides dynamic authentication support for applications and services in a Linux Operating System.Interact with user-application.
+Each PAM-aware application or service has a file in the /etc/pam.d/ directory
+<module interface>  <control flag>   <module arguments>
+EXAMPLE : 
+account required pam_permit.so — This line uses the pam_permit.so module to allow the root user or anyone logged in at the console to reboot the system. 
+auth required pam_unix.so nullok — This module prompts the user for a password and then checks the password using the information stored in /etc/passwd and, if it exists, /etc/shadow
+http://linux-pam.org
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
