@@ -29,3 +29,7 @@ Examples:
 script.sh
 ---------
 Simple garbage cleaning script which is based on the given pattern.
+
+script.sh
+---------
+Simple Cheat sheet for many actions in RHEL.
